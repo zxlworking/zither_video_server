@@ -9,7 +9,9 @@ type FileInfo struct {
 type VideoFileInfo struct {
 	VideoId      string
 	VideoName    string
+	VideoPath    string
 	VideoDesc    string
+	ImgName      string
 	UserId       string
 	ConvertVideo string
 }

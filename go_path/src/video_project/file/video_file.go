@@ -40,13 +40,15 @@ func QueryAllVideoFile() (int, []data.VideoFileInfo) {
 	for rows.Next() {
 		var video_id string
 		var video_name string
+		var video_path string
 		var video_desc string
+		var img_name string
 		var user_id string
 		var convert_video string
-		err := rows.Scan(&video_id, &video_name, &video_desc, &user_id, &convert_video)
+		err := rows.Scan(&video_id, &video_name, &video_path, &video_desc, &img_name, &user_id, &convert_video)
 		checkErr(err)
-		fmt.Println("user::QueryAllVideoFile::", video_id, video_name, video_desc, user_id, convert_video)
-		videoFileInfo := data.VideoFileInfo{video_id, video_name, video_desc, user_id, convert_video}
+		fmt.Println("user::QueryAllVideoFile::", video_id, video_name, video_path, video_desc, img_name, user_id, convert_video)
+		videoFileInfo := data.VideoFileInfo{video_id, video_name, video_path, video_desc, img_name, user_id, convert_video}
 		videoFileInfoList = append(videoFileInfoList, videoFileInfo)
 	}
 	defer rows.Close()
@@ -70,13 +72,15 @@ func QueryVideoFileByVideoId(videoId string) (int, data.VideoFileInfo) {
 	for rows.Next() {
 		var video_id string
 		var video_name string
+		var video_path string
 		var video_desc string
+		var img_name string
 		var user_id string
 		var convert_video string
-		err := rows.Scan(&video_id, &video_name, &video_desc, &user_id, &convert_video)
+		err := rows.Scan(&video_id, &video_name, &video_path, &video_desc, &img_name, &user_id, &convert_video)
 		checkErr(err)
-		fmt.Println("user::queryVideoFileByVideoId::", video_id, video_name, video_desc, user_id, convert_video)
-		return 0, data.VideoFileInfo{video_id, video_name, video_desc, user_id, convert_video}
+		fmt.Println("user::queryVideoFileByVideoId::", video_id, video_name, video_path, video_desc, img_name, user_id, convert_video)
+		return 0, data.VideoFileInfo{video_id, video_name, video_path, video_desc, img_name, user_id, convert_video}
 	}
 	defer rows.Close()
 	defer stmt.Close()
@@ -90,10 +94,11 @@ func AddVideoFile(videoFileInfo data.VideoFileInfo) int {
 	db, openErr := sql.Open("mysql", dbusername+":"+dbpassword+"@tcp("+dbhostip+")/"+dbname+"?charset=utf8")
 	checkErr(openErr)
 
-	stmt, prepareErr := db.Prepare("insert into video (video_id, video_name, video_desc, user_id) values (?,?,?,?)")
+	stmt, prepareErr := db.Prepare("insert into video (video_name, video_path, video_desc,img_name, user_id) values (?,?,?,?,?)")
 	checkErr(prepareErr)
 
-	_, execErr := stmt.Exec(videoFileInfo.VideoId, videoFileInfo.VideoName, videoFileInfo.VideoDesc, videoFileInfo.UserId)
+	fmt.Println("video_file::AddVideoFile::", videoFileInfo.VideoName, videoFileInfo.VideoPath, videoFileInfo.VideoDesc, videoFileInfo.ImgName, videoFileInfo.UserId)
+	_, execErr := stmt.Exec(videoFileInfo.VideoName, videoFileInfo.VideoPath, videoFileInfo.VideoDesc, videoFileInfo.ImgName, videoFileInfo.UserId)
 	checkErr(execErr)
 
 	defer stmt.Close()
@@ -102,16 +107,16 @@ func AddVideoFile(videoFileInfo data.VideoFileInfo) int {
 	return 0
 }
 
-func UpdateVideoFileConvert(videoId string) int {
-	fmt.Println("video_file::UpdateVideoFileConvert::videoId = " + videoId)
+func UpdateVideoFileConvert(videoPath string) int {
+	fmt.Println("video_file::UpdateVideoFileConvert::videoPath = " + videoPath)
 
 	db, openErr := sql.Open("mysql", dbusername+":"+dbpassword+"@tcp("+dbhostip+")/"+dbname+"?charset=utf8")
 	checkErr(openErr)
 
-	stmt, prepareErr := db.Prepare("update video set convert_video = 1 where video_id = ?")
+	stmt, prepareErr := db.Prepare("update video set convert_video = 1 where video_path = ?")
 	checkErr(prepareErr)
 
-	_, execErr := stmt.Exec(videoId)
+	_, execErr := stmt.Exec(videoPath)
 	checkErr(execErr)
 
 	defer stmt.Close()

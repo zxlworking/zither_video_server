@@ -1,74 +1,14 @@
 package main
 
-/*
-import (
-	"fmt"
-	"io"
-	"net/http"
-	"strings"
-	"time"
-)
-
-var (
-	server = http.Server{
-		Addr:           ":8080",
-		Handler:        &HandlerStruct{},
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-
-	handlerMap = make(map[string]HandlerFunc)
-)
-
-type HandlerStruct struct {
-}
-
-type HandlerFunc func(http.ResponseWriter, *http.Request)
-
-func (*HandlerStruct) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if handler, ok := handlerMap[r.URL.String()]; ok {
-		handler(w, r)
-	}
-	urlStr := r.URL.String()
-	index := strings.Index(urlStr, "/register?")
-	fmt.Println(index)
-	fmt.Println("ServeHTTP::url = " + urlStr)
-	if index == 0 {
-		r.ParseForm()
-		fmt.Fprintln(w, "user_name = "+r.Form.Get("user_name"))
-		fmt.Fprintln(w, "pass_word = "+r.Form.Get("pass_word"))
-	}
-
-}
-
-func register(w http.ResponseWriter, r *http.Request) {
-	//r.ParseForm()
-	fmt.Println(r.Header["Accept-Encoding"])
-	fmt.Println(r.URL.Query())
-
-}
-
-func login(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "login")
-}
-
-func main() {
-	handlerMap["/register"] = register
-	handlerMap["/login"] = login
-
-	server.ListenAndServe()
-}
-*/
-
 import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 	data "video_project/data"
 	"video_project/file"
@@ -225,26 +165,10 @@ func uploadVideoFile(w http.ResponseWriter, r *http.Request) {
 		go mp4toflv(videoRealName)
 	*/
 
-	r.ParseForm()
-	videoName := r.URL.Query()["video_name"][0]
-	videoDesc := r.URL.Query()["video_desc"][0]
-	userId := r.URL.Query()["user_id"][0]
-	fmt.Println("videoName", videoName)
-	fmt.Println("videoDesc", videoDesc)
-	fmt.Println("userId", userId)
-
-	/**
-	底层通过调用multipartReader.ReadForm来解析
-	如果文件大小超过maxMemory,则使用临时文件来存储multipart/form中文件数据
-	*/
-	r.ParseMultipartForm(32 << 20)
-	//fmt.Println("r.Form:         ", r.Form)
-	//fmt.Println("r.PostForm:     ", r.PostForm)
-	//fmt.Println("r.MultiPartForm:", r.MultipartForm)
-	getFormData(r.MultipartForm)
+	getFormData(w, r)
 }
 
-func getFormData(form *multipart.Form) {
+func getFormData(w http.ResponseWriter, r *http.Request) {
 	/*
 		//获取 multi-part/form body中的form value
 		for k, v := range form.Value {
@@ -264,6 +188,29 @@ func getFormData(form *multipart.Form) {
 		fmt.Println()
 	*/
 
+	r.ParseForm()
+	videoName := r.URL.Query()["video_name"][0]
+	videoDesc := r.URL.Query()["video_desc"][0]
+	userId := r.URL.Query()["user_id"][0]
+	fmt.Println("videoName", videoName)
+	fmt.Println("videoDesc", videoDesc)
+	fmt.Println("userId", userId)
+
+	/**
+	底层通过调用multipartReader.ReadForm来解析
+	如果文件大小超过maxMemory,则使用临时文件来存储multipart/form中文件数据
+	*/
+	r.ParseMultipartForm(32 << 20)
+	//fmt.Println("r.Form:         ", r.Form)
+	//fmt.Println("r.PostForm:     ", r.PostForm)
+	//fmt.Println("r.MultiPartForm:", r.MultipartForm)
+
+	form := r.MultipartForm
+
+	fmt.Println(time.Now().UnixNano())
+	videoRealName := strconv.FormatInt(time.Now().UnixNano(), 10)
+	imgRealName := strconv.FormatInt(time.Now().UnixNano(), 10)
+
 	for k, v := range form.File {
 		//fmt.Println("value,k,v = ", k, ",", v)
 		fmt.Println("getFormData::form.File::k = ", k, ",", len(v))
@@ -273,16 +220,52 @@ func getFormData(form *multipart.Form) {
 			f, _ := value.Open()
 			buf, _ := ioutil.ReadAll(f)
 
-			dstFile, err := os.Create("./video_file/" + value.Filename)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
+			if strings.HasSuffix(value.Filename, ".mp4") {
+				fmt.Println("getFormData::videoRealName = " + videoRealName)
+				dstFile, err := os.Create("./video_file/" + videoRealName)
+
+				if err != nil {
+					fmt.Println(err.Error())
+					return
+				}
+				defer dstFile.Close()
+				dstFile.WriteString(string(buf))
+			} else {
+				fmt.Println("getFormData::imgRealName = " + imgRealName)
+				dstFile, err := os.Create("./img_file/" + imgRealName)
+
+				if err != nil {
+					fmt.Println(err.Error())
+					return
+				}
+				defer dstFile.Close()
+				dstFile.WriteString(string(buf))
 			}
-			defer dstFile.Close()
-			dstFile.WriteString(string(buf))
 		}
 	}
-	fmt.Println()
+	fmt.Println("getFormData::form.File::videoRealName = " + videoRealName)
+	fmt.Println("getFormData::form.File::imgRealName = " + imgRealName)
+
+	videoFileInfo := data.VideoFileInfo{"", videoName, videoRealName, videoDesc, imgRealName, userId, "0"}
+	result := video_file.AddVideoFile(videoFileInfo)
+
+	fmt.Println("main::add_video_file::result = ", result)
+
+	var response data.ResponseBaseBean
+	if result == 0 {
+		response = data.ResponseBaseBean{result, "success"}
+	} else {
+		response = data.ResponseBaseBean{result, "fail"}
+	}
+
+	responseResult, error := json.Marshal(response)
+	if error != nil {
+
+	}
+	fmt.Println("main::add_video_file::success = ", string(responseResult))
+	fmt.Fprint(w, string(responseResult))
+
+	go mp4toflv(videoRealName)
 
 }
 
@@ -316,7 +299,7 @@ func startHttpServer() {
 }
 
 func startFileServer() {
-	http.ListenAndServe(":8081", http.FileServer(http.Dir(baseProjectDir+"video_file")))
+	http.ListenAndServe(":8081", http.FileServer(http.Dir(baseProjectDir+"")))
 }
 
 func mp4toflv(videoId string) {

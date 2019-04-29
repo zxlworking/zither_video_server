@@ -20,6 +20,12 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", ServeHTTP)
-	http.ListenAndServe(":8080", nil)
+	//http.HandleFunc("/", ServeHTTP)
+	//http.ListenAndServe(":8080", nil)
+	temp := 0
+	t1 := time.Now()
+
+	fmt.Println(temp)
+	t2 := time.Now()
+	fmt.Println(t2.Sub(t1))
 }
